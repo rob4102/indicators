@@ -1,4 +1,4 @@
-const { getTradeSignal } = require("./tradingSignals");
+const { getTradeSignal } = require("./taapi");
 
 (async () => {
     const pair = "ETH/USDT"; // Use pairs with high liquidity for short-term trading
