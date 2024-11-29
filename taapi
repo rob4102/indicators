@@ -1,0 +1,74 @@
+require('dotenv').config();
+const Taapi = require("taapi");
+
+// Initialize TAAPI client
+const taapi = new Taapi.default(process.env.TAAPI_SECRET);
+
+// Bulk fetch indicators
+async function getIndicators(pair, interval) {
+    try {
+        const response = await taapi.bulk({
+            indicators: [
+                { indicator: "rsi", exchange: "binance", symbol: pair, interval: interval, options: { period: 7 } },
+                { indicator: "ema", exchange: "binance", symbol: pair, interval: interval, options: { period: 5 } },
+                { indicator: "ema", exchange: "binance", symbol: pair, interval: interval, options: { period: 20 } },
+                { indicator: "stochrsi", exchange: "binance", symbol: pair, interval: interval },
+                { indicator: "vwap", exchange: "binance", symbol: pair, interval: interval },
+            ],
+        });
+
+        return {
+            rsi: response[0]?.value,
+            ema5: response[1]?.value,
+            ema20: response[2]?.value,
+            stochrsi: response[3],
+            vwap: response[4]?.value,
+        };
+    } catch (error) {
+        console.error("Error fetching indicators:", error.message);
+        return null;
+    }
+}
+
+// Generate trade signals
+async function getTradeSignal(pair, interval) {
+    try {
+        const indicators = await getIndicators(pair, interval);
+
+        if (indicators) {
+            const { rsi, ema5, ema20, stochrsi, vwap } = indicators;
+
+            // Short signal: RSI overbought, EMA5 below EMA20, and below VWAP
+            if (rsi > 80 && ema5 < ema20 && ema5 < vwap) {
+                return {
+                    signal: "Short",
+                    reason: "RSI overbought, EMA5 below EMA20, and price below VWAP",
+                };
+            }
+
+            // Buy signal: RSI oversold, EMA5 above EMA20, and above VWAP
+            if (rsi < 20 && ema5 > ema20 && ema5 > vwap) {
+                return {
+                    signal: "Buy",
+                    reason: "RSI oversold, EMA5 above EMA20, and price above VWAP",
+                };
+            }
+
+            // Hold signal: No strong conditions met
+            return {
+                signal: "Hold",
+                reason: "No strong signal detected",
+            };
+        }
+
+        return { signal: "Error", reason: "Failed to fetch indicators" };
+    } catch (error) {
+        console.error("Error generating trade signal:", error.message);
+        return { signal: "Error", reason: error.message };
+    }
+}
+
+module.exports = {
+    getIndicators,
+    getTradeSignal,
+};
