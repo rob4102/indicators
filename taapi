@@ -4,25 +4,33 @@ const Taapi = require("taapi");
 // Initialize TAAPI client
 const taapi = new Taapi.default(process.env.TAAPI_SECRET);
 
-// Bulk fetch indicators
+// Fetch indicators in parallel
 async function getIndicators(pair, interval) {
     try {
-        const response = await taapi.bulk({
-            indicators: [
-                { indicator: "rsi", exchange: "binance", symbol: pair, interval: interval, options: { period: 7 } },
-                { indicator: "ema", exchange: "binance", symbol: pair, interval: interval, options: { period: 5 } },
-                { indicator: "ema", exchange: "binance", symbol: pair, interval: interval, options: { period: 20 } },
-                { indicator: "stochrsi", exchange: "binance", symbol: pair, interval: interval },
-                { indicator: "vwap", exchange: "binance", symbol: pair, interval: interval },
-            ],
-        });
+        // Define all indicators to fetch
+        const indicators = [
+            { name: "rsi", options: { period: 7 } }, // Short-period RSI
+            { name: "ema", options: { period: 5 } }, // Fast EMA
+            { name: "ema", options: { period: 20 } }, // Slow EMA
+            { name: "stochrsi" },                    // Stochastic RSI
+            { name: "vwap" },                        // VWAP
+        ];
 
+        // Create API call promises for each indicator
+        const promises = indicators.map((indicator) =>
+            taapi.getIndicator(indicator.name, pair, interval, indicator.options || {})
+        );
+
+        // Execute all API calls in parallel
+        const results = await Promise.all(promises);
+console.log(results);
+        // Map results to indicator names
         return {
-            rsi: response[0]?.value,
-            ema5: response[1]?.value,
-            ema20: response[2]?.value,
-            stochrsi: response[3],
-            vwap: response[4]?.value,
+            rsi: results[0]?.value,
+            ema5: results[1]?.value,
+            ema20: results[2]?.value,
+            stochrsi: results[3],
+            vwap: results[4]?.value,
         };
     } catch (error) {
         console.error("Error fetching indicators:", error.message);
